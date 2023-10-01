@@ -1,0 +1,120 @@
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>Nest JS + Socket.io</title>
+        <script
+            src="https://cdn.socket.io/4.3.2/socket.io.min.js"
+            integrity="sha384-KAZ4DtjNhLChOB/hxXuKqhMLYvx3b5MlT55xPEiNmREKRzeEm+RVPlTnAn0ajQNs"
+            crossorigin="anonymous"
+        ></script>
+    </head>
+
+    <body style="height: 100dvh; overflow: hidden;">
+        <main style="height: 100%; display: flex; flex-direction: column;">
+            <div>
+                <p>Status: <span id="status">Disconnected</span></p>
+                <p>Transport: <span id="transport">N/A</span></p>
+            </div>
+            <div
+                id="chatBox"
+                style="border: 2px solid black; margin-bottom: 4px; flex: 1; overflow-y: scroll;"
+            ></div>
+            <div style="width: 100%">
+                <form id="form">
+                    <div style="width: 100%; margin-bottom: 4px">
+                        <label>Message Content: </label>
+                        <input
+                            name="content"
+                            id="content"
+                            required
+                            placeholder="type something..."
+                            type="text"
+                            style="flex: 1; margin-right: 4px"
+                        />
+                        <button type="submit">Send</button>
+                    </div>
+                    <div style="width: 100%">
+                        <label>Username: </label>
+                        <input
+                            placeholder="your username..."
+                            required
+                            name="username"
+                            id="username"
+                            type="text"
+                        />
+                    </div>
+                </form>
+            </div>
+        </main>
+
+        <script>
+            const $status = document.getElementById('status')
+            const $transport = document.getElementById('transport')
+            const $form = document.querySelector('#form')
+            const $username = document.getElementById('username')
+            const localName = localStorage.getItem('username')
+            const $chatBox = document.getElementById('chatBox')
+
+            if (localName) {
+                $username.value = localStorage.getItem('username')
+            }
+
+            $form.addEventListener('submit', (event) => {
+                event.preventDefault()
+                sendMessage(event)
+            })
+
+            function sendMessage(e) {
+                const content = e.target[0].value
+                const username = e.target[2].value
+                localStorage.setItem('username', username)
+                socket.emit('messages', {
+                    username,
+                    content,
+                })
+                document.getElementById('content').value = ''
+            }
+
+            const socket = io('http://localhost:3006')
+            socket.on('connect', function () {
+                console.log(
+                    `Connected with transport ${socket.io.engine.transport.name}`
+                )
+                $status.innerText = 'Connected'
+                $transport.innerText = socket.io.engine.transport.name
+
+                socket.emit('events', { test: 'test' })
+                socket.emit('identity', 0, (response) =>
+                    console.log('Identity:', response)
+                )
+
+                socket.io.engine.on('upgrade', (transport) => {
+                    console.log(`transport upgraded to ${transport.name}`)
+
+                    $transport.innerText = transport.name
+                })
+            })
+
+            socket.on('events', function (data) {
+                console.log('event', data)
+            })
+            socket.on('message', function (data) {
+                console.log('message', data)
+                $chatBox.innerHTML += `<div><span>${data.username}: </span>${data.content}</div><br>`
+                $chatBox.scrollTop = $chatBox.scrollHeight
+            })
+            socket.on('exception', function (data) {
+                console.log('exception', data)
+            })
+            socket.on('connect_error', (err) => {
+                console.log(`connect_error due to ${err.message}`)
+            })
+            socket.on('disconnect', function (reason) {
+                console.log(`disconnect due to ${reason}`)
+
+                $status.innerText = 'Disconnected'
+                $transport.innerText = 'N/A'
+            })
+        </script>
+    </body>
+</html>
